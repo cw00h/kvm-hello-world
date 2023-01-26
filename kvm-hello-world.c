@@ -179,6 +179,7 @@ void handle_open(struct vm *vm, struct vcpu *vcpu) {
 		char *filename;
 		int min_fd;
 
+		// Find a free file descriptor
 		for(min_fd = 0; min_fd < MAX_FD; min_fd++) {
 			if(!files[min_fd].in_use) break;
 		}
@@ -186,23 +187,22 @@ void handle_open(struct vm *vm, struct vcpu *vcpu) {
 			fd = -1;
 		}
 
+		// Fetch filename from guest & open the file
 		filename = vm->mem + (uint64_t)*((char **)p);
-
 		fd = files[min_fd].fd = open(filename, O_RDONLY);
 		files[min_fd].in_use = 1;
-
-		printf("opened %s as fd %d. min_fd is %d\n", filename, files[min_fd].fd, min_fd);
 	}
 	else if(vcpu->kvm_run->io.direction == KVM_EXIT_IO_IN) {
 		char *p = (char *)vcpu->kvm_run + vcpu->kvm_run->io.data_offset;
+		// Return the file descriptor to the guest
 		*((int32_t *)p) = fd;
-		printf("returning fd %d\n", fd);
 	}
 }
 
 void handle_read(struct vm *vm, struct vcpu *vcpu) {
 	static int ret = 0;
 	if(vcpu->kvm_run->io.direction == KVM_EXIT_IO_OUT) {
+		// Fetch arguments from guest
 		char *p = (char *)vcpu->kvm_run + vcpu->kvm_run->io.data_offset;
 		struct rw_args *args = (struct rw_args*)(vm->mem + (uint64_t)(*((char **)p)));
 
@@ -228,6 +228,7 @@ void handle_read(struct vm *vm, struct vcpu *vcpu) {
 		ret = read(fd, buf, count);
 	}
 	else if(vcpu->kvm_run->io.direction == KVM_EXIT_IO_IN) {
+		// Return the number of bytes read to the guest
 		char *p = (char *)vcpu->kvm_run + vcpu->kvm_run->io.data_offset;
 		*((int32_t *)p) = ret;
 	}

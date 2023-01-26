@@ -50,7 +50,7 @@ __attribute__((noreturn))
 __attribute__((section(".start")))
 _start(void) {
 	const char *p;
-	int fd;
+	int fd, fd1, fd2, fd3;
 
 	/* Print Hello world */
 	display("----------------------------------------\n");
@@ -85,11 +85,48 @@ _start(void) {
 	/* Test read() */
 	display("----------------------------------------\n");
 	char buf[100];
+
 	display("Reading test.txt - read returned ");
 	printVal(read(fd, buf, sizeof(buf)));
 
 	display("\nContents of test.txt:\n");
 	display(buf);
+
+	// Clear buf
+	for(int i = 0; i < 100; i++) buf[i] = 0;
+
+	/* Test multiple opening & reading */
+	display("----------------------------------------\n");
+	fd1 = open("a.txt");
+	fd2 = open("b.txt");
+	fd3 = open("c.txt");
+
+	display("\nOpening a.txt, b.txt, c.txt\n");
+	printVal(fd1);
+	display("\n");
+	printVal(fd2);
+	display("\n");
+	printVal(fd3);
+	display("\n");
+
+	read(fd1, buf, sizeof(buf));
+	display("Contents of a.txt:\n");
+	display(buf);
+	for(int i = 0; i < 100; i++) buf[i] = 0;
+
+	read(fd2, buf, sizeof(buf));
+	display("Contents of b.txt:\n");
+	display(buf);
+	for(int i = 0; i < 100; i++) buf[i] = 0;
+
+	read(fd3, buf, sizeof(buf));
+	display("Contents of c.txt:\n");
+	display(buf);
+	for(int i = 0; i < 100; i++) buf[i] = 0;
+
+	/* Test write() */
+	display("----------------------------------------\n");
+
 
 	/* Halt after setting 0x400 & rax as 42 */
 	*(long *) 0x400 = 42;
