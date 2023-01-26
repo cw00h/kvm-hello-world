@@ -1,0 +1,79 @@
+Q: What is the size of the guest memory (that the guest perceives
+as its physical memory) that is setup in the function vm_init? 
+How and where in the hyprevisor code is this guest memory allocated
+from the host OS? At what virtual address is this memory mapped
+into the virtual address space of this simple hypervisor? 
+(Note that the address returned by mmap is a host virtual address.)
+
+A: 
+The guest memory's size is 0x200000.
+The Guest memory is allocated by using mmap in vm_init(), at vm->mem. 
+
+Q: Besides the guest memory, every VCPU also allocates a small
+portion of VCPU runtime memory from the host OS in the function ,
+store the information it has to exchange with KVM.
+In which lines of the program is this memory allocated,
+what is its size, and where is it located in the virutal address
+space of the hypervisor?
+
+A:
+In vcpu_init(), the VCPU runtime memory is allocated by using mmap,
+at vcpu->kvm_run. Its size is vcpu_mmap_size.
+
+Q: The guest memory area is formatted to contain the guest code
+(which is made available as an extern char array in the executable),
+the guest page table, and a kernel stack. Can you identify where
+in the code each of these is setup? What range of addresses do
+each of these occupy, in the guest physical address space, and the
+host virtual address space? That is, can you visualize the physical
+address space of the guest VM, as well as the virtual address 
+space of the host user process that is setting up the VM?
+
+A:
+- guest code: For guest PA, from 0. code segment's limit is -1.... WHY??
+- guest page table:
+For guest PA, from 0x2000(=pml4_addr) to 0x5000. 
+For host VA, from vm_mem + 0x2000 to vm_mem + 0x5000.
+- kernel stack: For guest PA, from 2<<20. For host VA, from vm_mem + 2<<20.
+
+Q: A more detailed study of the code will help you understand the structure of the guest
+page table, and how the guest virtual address space is mapped to its physical address
+space using its page table. How many levels does the guest page table have in long mode?
+How many pages does it occupy? What are the (guest) virutal-to-physical mappings setup
+in the guest page table? What parts of the guest virtual address space is mapped by this 
+page table? Can you visualize the page table structure and the address translation in the guest?
+
+A:
+The guest page table have 3 levels in long mode.
+It occupies 2^11 pages.
+Its virtual-to-physical mappings setup is ???.
+Entire VAS is mapped by the page table.
+
+
+Q: At what (guest virtual) address does the guest start execution when it runs? 
+Where is this address configured?
+
+A:
+It starts the execution in 0. regs' rip is set to 0.
+
+Q: At which line in the hypervisor program does the control switch from running the hypervisor to
+running the guest? At which line does the control switch back to the hypervisor from the guest?
+
+A:
+ioctl(vcpu->fd, KVM_RUN, 0) switches the control to the guest.
+Guest's halt instruction switches the control back to the hypervisor.
+
+Q: Can you fully understand how the "Hello, world!" string is printed out by the guest via the
+hypervisor? What port number is used for this communication? How can you read the port number
+and the value written to the port within the hypervisor? Which memory buffer is used to
+communicate the value written by the guest to the hypervisor? How many exits (from
+ guest to hypervisor) are required to print out the complete string?
+
+A: Used port number is 0xE9. You can check the port & value written in run_vm(),
+where exit_reason is KVM_EXIT_TO. Memory buffer at vcpu->kvm_run + vcpu->kvm_run->io.data_offset
+is used. Total 15 exits are required.
+
+Q: Can you figure out what's happening with the number 42? Where is it written in the guest and
+where is it read out in the hypervisor?
+
+A: It is written in the guest at 0x400 and rax. It's read out in hypervisor from vm->mem[0x400] and regs.rax.
