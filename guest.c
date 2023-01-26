@@ -39,9 +39,21 @@ int read(int fd, void *buf, size_t count) {
 	args[0].buf = buf;
 	args[0].count = count;
 
-	uint32_t temp = (char *)args - (char *)0; // Cast struct read_args * to uint32_t
+	uint32_t temp = (char *)args - (char *)0; // Cast struct rw_args * to uint32_t
 	outb(PORT_READ, temp);
 	temp = inb(PORT_READ);
+	return temp;
+}
+
+int write(int fd, void *buf, size_t count) {
+	struct rw_args args[1];
+	args[0].fd = fd;
+	args[0].buf = buf;
+	args[0].count = count;
+
+	uint32_t temp = (char *)args - (char *)0; // Cast struct rw_args * to uint32_t
+	outb(PORT_WRITE, temp);
+	temp = inb(PORT_WRITE);
 	return temp;
 }
 
@@ -50,7 +62,7 @@ __attribute__((noreturn))
 __attribute__((section(".start")))
 _start(void) {
 	const char *p;
-	int fd, fd1, fd2, fd3;
+	int fd, fd1, fd2, fd3, fd4;
 
 	/* Print Hello world */
 	display("----------------------------------------\n");
@@ -92,8 +104,7 @@ _start(void) {
 	display("\nContents of test.txt:\n");
 	display(buf);
 
-	// Clear buf
-	for(int i = 0; i < 100; i++) buf[i] = 0;
+	for(int i = 0; i < 100; i++) buf[i] = 0; // Clear buf
 
 	/* Test multiple opening & reading */
 	display("----------------------------------------\n");
@@ -126,7 +137,17 @@ _start(void) {
 
 	/* Test write() */
 	display("----------------------------------------\n");
+	display("Writing to test.txt - write returned ");
+	printVal(write(fd, "Writing someting\n", 17));
+	display("\n");
 
+	display("Contents of test.txt:\n");
+	// Reopen test.txt
+	open("test.txt");
+	fd4 = open("test.txt");
+	read(fd4, buf, sizeof(buf));
+	display(buf);
+	for(int i = 0; i < 100; i++) buf[i] = 0;
 
 	/* Halt after setting 0x400 & rax as 42 */
 	*(long *) 0x400 = 42;

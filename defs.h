@@ -4,6 +4,7 @@
 #define PORT_DISPLAY     0xEC
 #define PORT_OPEN        0xED
 #define PORT_READ        0xEE
+#define PORT_WRITE       0xEF
 
 #define MAX_FD 256
 

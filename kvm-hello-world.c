@@ -189,7 +189,7 @@ void handle_open(struct vm *vm, struct vcpu *vcpu) {
 
 		// Fetch filename from guest & open the file
 		filename = vm->mem + (uint64_t)*((char **)p);
-		fd = files[min_fd].fd = open(filename, O_RDONLY);
+		fd = files[min_fd].fd = open(filename, O_RDWR);
 		files[min_fd].in_use = 1;
 	}
 	else if(vcpu->kvm_run->io.direction == KVM_EXIT_IO_IN) {
@@ -224,11 +224,44 @@ void handle_read(struct vm *vm, struct vcpu *vcpu) {
 		void *buf = vm->mem + (uint64_t)(args->buf);
 		
 		size_t count = args->count;
-
 		ret = read(fd, buf, count);
 	}
 	else if(vcpu->kvm_run->io.direction == KVM_EXIT_IO_IN) {
 		// Return the number of bytes read to the guest
+		char *p = (char *)vcpu->kvm_run + vcpu->kvm_run->io.data_offset;
+		*((int32_t *)p) = ret;
+	}
+}
+
+void handle_write(struct vm *vm, struct vcpu *vcpu) {
+	static int ret = 0;
+	if(vcpu->kvm_run->io.direction == KVM_EXIT_IO_OUT) {
+		// Fetch arguments from guest
+		char *p = (char *)vcpu->kvm_run + vcpu->kvm_run->io.data_offset;
+		struct rw_args *args = (struct rw_args*)(vm->mem + (uint64_t)(*((char **)p)));
+
+		int fd = args->fd;
+		if(fd < 0 || fd >= MAX_FD) { // Invalid fd
+			ret = -1;
+			return;
+		}
+		for(int i = 0; i < MAX_FD; i++) {
+			if(files[i].fd == fd) {
+				if(!files[i].in_use) { // Unopened fd
+					ret = -1;
+					return;
+				}
+				break;
+			}
+		}
+
+		void *buf = vm->mem + (uint64_t)(args->buf);
+		
+		size_t count = args->count;
+		ret = write(fd, buf, count);
+	}
+	else if(vcpu->kvm_run->io.direction == KVM_EXIT_IO_IN) {
+		// Return the number of bytes written to the guest
 		char *p = (char *)vcpu->kvm_run + vcpu->kvm_run->io.data_offset;
 		*((int32_t *)p) = ret;
 	}
@@ -281,6 +314,10 @@ int run_vm(struct vm *vm, struct vcpu *vcpu, size_t sz)
 
 			case PORT_READ:
 				handle_read(vm, vcpu);
+				break;
+
+			case PORT_WRITE:
+				handle_write(vm, vcpu);
 				break;
 
 			default:
