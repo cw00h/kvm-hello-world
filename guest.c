@@ -20,6 +20,12 @@ uint32_t getNumExits(void) {
 	return inb(PORT_GETNUMEXITS);
 }
 
+// display prints the argument string to the screen via a hypercall, incuring only one exit.
+void display(const char *str) {
+	uint32_t temp = str - (char *)0; // Cast char * to uint32_t
+	outb(PORT_DISPLAY, temp);
+}
+
 void
 __attribute__((noreturn))
 __attribute__((section(".start")))
@@ -31,13 +37,19 @@ _start(void) {
 		outb(PORT_PRINT_CHAR, *p);
 
 	/* Test printVal() */
-	printVal(0x1234);
+	printVal(1234);
 	outb(PORT_PRINT_CHAR, '\n');
 
 	/* Test getNumExits() */
 	uint32_t numExits = getNumExits();
 	printVal(numExits);
 	outb(PORT_PRINT_CHAR, '\n');
+
+	/* Test display() */
+	printVal(getNumExits());
+	display("\nHello world again!\n");
+	printVal(getNumExits());
+	display("\n");
 
 	/* Halt after setting 0x400 & rax as 42 */
 	*(long *) 0x400 = 42;

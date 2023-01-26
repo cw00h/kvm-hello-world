@@ -186,6 +186,11 @@ int run_vm(struct vm *vm, struct vcpu *vcpu, size_t sz)
 					printf("%d", *((uint32_t *)p));
 					fflush(stdout);
 					break;
+				
+				case PORT_DISPLAY:
+					printf("%s", vm->mem + (uint64_t)*((char **)p));
+					fflush(stdout);
+					break;
 				}
 				continue;
 			}
