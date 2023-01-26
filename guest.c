@@ -33,6 +33,18 @@ int open(const char *filename) {
 	return temp;
 }
 
+int read(int fd, void *buf, size_t count) {
+	struct rw_args args[1];
+	args[0].fd = fd;
+	args[0].buf = buf;
+	args[0].count = count;
+
+	uint32_t temp = (char *)args - (char *)0; // Cast struct read_args * to uint32_t
+	outb(PORT_READ, temp);
+	temp = inb(PORT_READ);
+	return temp;
+}
+
 void
 __attribute__((noreturn))
 __attribute__((section(".start")))
@@ -41,29 +53,43 @@ _start(void) {
 	int fd;
 
 	/* Print Hello world */
+	display("----------------------------------------\n");
 	for (p = "Hello, world!\n"; *p; ++p)
 		outb(PORT_PRINT_CHAR, *p);
 
 	/* Test printVal() */
+	display("----------------------------------------\n");
 	printVal(1234);
 	outb(PORT_PRINT_CHAR, '\n');
 
 	/* Test getNumExits() */
+	display("----------------------------------------\n");
 	uint32_t numExits = getNumExits();
 	printVal(numExits);
 	outb(PORT_PRINT_CHAR, '\n');
 
 	/* Test display() */
+	display("----------------------------------------\n");
 	printVal(getNumExits());
 	display("\nHello world again!\n");
 	printVal(getNumExits());
 	display("\n");
 
 	/* Test open() */
+	display("----------------------------------------\n");
 	display("Opening test.txt\n");
 	fd = open("test.txt");
 	printVal(fd);
 	display("\n");
+
+	/* Test read() */
+	display("----------------------------------------\n");
+	char buf[100];
+	display("Reading test.txt - read returned ");
+	printVal(read(fd, buf, sizeof(buf)));
+
+	display("\nContents of test.txt:\n");
+	display(buf);
 
 	/* Halt after setting 0x400 & rax as 42 */
 	*(long *) 0x400 = 42;
