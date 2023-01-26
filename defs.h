@@ -1,0 +1,2 @@
+#define PORT_PRINT_CHAR  0xE9
+#define PORT_PRINT_VALUE 0xEA

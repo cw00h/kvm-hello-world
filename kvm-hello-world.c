@@ -8,6 +8,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <linux/kvm.h>
+#include "defs.h"
 
 /* CR0 bits */
 #define CR0_PE 1u
@@ -164,17 +165,26 @@ int run_vm(struct vm *vm, struct vcpu *vcpu, size_t sz)
 			exit(1);
 		}
 
+		// Guest exited.
+
 		switch (vcpu->kvm_run->exit_reason) {
 		case KVM_EXIT_HLT:
 			goto check;
 
 		case KVM_EXIT_IO:
-			if (vcpu->kvm_run->io.direction == KVM_EXIT_IO_OUT
-			    && vcpu->kvm_run->io.port == 0xE9) {
-				char *p = (char *)vcpu->kvm_run;
-				fwrite(p + vcpu->kvm_run->io.data_offset,
-				       vcpu->kvm_run->io.size, 1, stdout);
-				fflush(stdout);
+			if(vcpu->kvm_run->io.direction == KVM_EXIT_IO_OUT) {
+				char *p = (char *)vcpu->kvm_run + vcpu->kvm_run->io.data_offset;
+				switch(vcpu->kvm_run->io.port) {
+				case PORT_PRINT_CHAR: 
+					fwrite(p, vcpu->kvm_run->io.size, 1, stdout);
+					fflush(stdout);
+					break;
+				
+				case PORT_PRINT_VALUE:
+					printf("%d", *((uint32_t *)p));
+					fflush(stdout);
+					break;
+				}
 				continue;
 			}
 
