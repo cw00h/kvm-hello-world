@@ -158,6 +158,7 @@ int run_vm(struct vm *vm, struct vcpu *vcpu, size_t sz)
 {
 	struct kvm_regs regs;
 	uint64_t memval = 0;
+	uint32_t numExits = 0;
 
 	for (;;) {
 		if (ioctl(vcpu->fd, KVM_RUN, 0) < 0) {
@@ -166,6 +167,7 @@ int run_vm(struct vm *vm, struct vcpu *vcpu, size_t sz)
 		}
 
 		// Guest exited.
+		numExits++;
 
 		switch (vcpu->kvm_run->exit_reason) {
 		case KVM_EXIT_HLT:
@@ -184,6 +186,17 @@ int run_vm(struct vm *vm, struct vcpu *vcpu, size_t sz)
 					printf("%d", *((uint32_t *)p));
 					fflush(stdout);
 					break;
+				}
+				continue;
+			}
+			else if(vcpu->kvm_run->io.direction == KVM_EXIT_IO_IN) {
+				char *p = (char *)vcpu->kvm_run + vcpu->kvm_run->io.data_offset;
+				switch(vcpu->kvm_run->io.port) {
+				case PORT_GETNUMEXITS:
+					*(uint32_t *)p = numExits;
+					break;
+				default:
+					printf("something is wrong\n");
 				}
 				continue;
 			}
