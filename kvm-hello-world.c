@@ -154,6 +154,53 @@ void vcpu_init(struct vm *vm, struct vcpu *vcpu)
 	}
 }
 
+struct file {
+	int fd;
+	int in_use;
+};
+
+struct file files[255];
+
+void files_init() {
+	int i;
+	files[0].fd = 0; files[0].in_use = 1;
+	files[1].fd = 1; files[1].in_use = 1;
+	files[2].fd = 2; files[2].in_use = 1;
+	for(i = 3; i < 255; i++) {
+		files[i].fd = -1;
+		files[i].in_use = 0;
+	}
+}
+
+void handle_open(struct vm *vm, struct vcpu *vcpu) {
+	static int fd = 0;
+	if(vcpu->kvm_run->io.direction == KVM_EXIT_IO_OUT) {
+		char *p = (char *)vcpu->kvm_run + vcpu->kvm_run->io.data_offset;
+		char *filename;
+		int min_fd;
+
+		for(min_fd = 0; min_fd < MAX_FD; min_fd++) {
+			if(!files[min_fd].in_use) break;
+		}
+		if(min_fd == MAX_FD) { // No free file descriptors
+			fd = -1;
+		}
+
+		filename = vm->mem + (uint64_t)*((char **)p);
+
+		files[min_fd].fd = open(filename, O_RDONLY);
+		files[min_fd].in_use = 1;
+		fd = files[min_fd].fd;
+
+		printf("opened %s as fd %d. min_fd is %d\n", filename, files[min_fd].fd, min_fd);
+	}
+	else if(vcpu->kvm_run->io.direction == KVM_EXIT_IO_IN) {
+		char *p = (char *)vcpu->kvm_run + vcpu->kvm_run->io.data_offset;
+		*((int32_t *)p) = fd;
+		printf("returning fd %d\n", fd);
+	}
+}
+
 int run_vm(struct vm *vm, struct vcpu *vcpu, size_t sz)
 {
 	struct kvm_regs regs;
@@ -173,38 +220,38 @@ int run_vm(struct vm *vm, struct vcpu *vcpu, size_t sz)
 		case KVM_EXIT_HLT:
 			goto check;
 
-		case KVM_EXIT_IO:
-			if(vcpu->kvm_run->io.direction == KVM_EXIT_IO_OUT) {
-				char *p = (char *)vcpu->kvm_run + vcpu->kvm_run->io.data_offset;
-				switch(vcpu->kvm_run->io.port) {
-				case PORT_PRINT_CHAR: 
-					fwrite(p, vcpu->kvm_run->io.size, 1, stdout);
-					fflush(stdout);
-					break;
-				
-				case PORT_PRINT_VALUE:
-					printf("%d", *((uint32_t *)p));
-					fflush(stdout);
-					break;
-				
-				case PORT_DISPLAY:
-					printf("%s", vm->mem + (uint64_t)*((char **)p));
-					fflush(stdout);
-					break;
-				}
-				continue;
+		case KVM_EXIT_IO: {
+			char *p = (char *)vcpu->kvm_run + vcpu->kvm_run->io.data_offset;
+			switch(vcpu->kvm_run->io.port) {
+			case PORT_PRINT_CHAR: 
+				fwrite(p, vcpu->kvm_run->io.size, 1, stdout);
+				fflush(stdout);
+				break;
+			
+			case PORT_PRINT_VALUE:
+				printf("%d", *((uint32_t *)p));
+				fflush(stdout);
+				break;
+			
+			case PORT_GETNUMEXITS:
+				*(uint32_t *)p = numExits;
+				break;
+
+			case PORT_DISPLAY:
+				printf("%s", vm->mem + (uint64_t)*((char **)p));
+				fflush(stdout);
+				break;
+
+			case PORT_OPEN:
+				handle_open(vm, vcpu);
+				break;
+
+			default:
+				fprintf(stderr, "Unvalid hypercall\n");
+				exit(1);
 			}
-			else if(vcpu->kvm_run->io.direction == KVM_EXIT_IO_IN) {
-				char *p = (char *)vcpu->kvm_run + vcpu->kvm_run->io.data_offset;
-				switch(vcpu->kvm_run->io.port) {
-				case PORT_GETNUMEXITS:
-					*(uint32_t *)p = numExits;
-					break;
-				default:
-					printf("something is wrong\n");
-				}
-				continue;
-			}
+			continue;
+		}
 
 			/* fall through */
 		default:
@@ -504,6 +551,7 @@ int main(int argc, char **argv)
 
 	vm_init(&vm, 0x200000);
 	vcpu_init(&vm, &vcpu);
+	files_init();
 
 	switch (mode) {
 	case REAL_MODE:

@@ -26,11 +26,19 @@ void display(const char *str) {
 	outb(PORT_DISPLAY, temp);
 }
 
+int open(const char *filename) {
+	uint32_t temp = filename - (char *)0; // Cast char * to uint32_t
+	outb(PORT_OPEN, temp);
+	temp = inb(PORT_OPEN);
+	return temp;
+}
+
 void
 __attribute__((noreturn))
 __attribute__((section(".start")))
 _start(void) {
 	const char *p;
+	int fd;
 
 	/* Print Hello world */
 	for (p = "Hello, world!\n"; *p; ++p)
@@ -49,6 +57,12 @@ _start(void) {
 	printVal(getNumExits());
 	display("\nHello world again!\n");
 	printVal(getNumExits());
+	display("\n");
+
+	/* Test open() */
+	display("Opening test.txt\n");
+	fd = open("test.txt");
+	printVal(fd);
 	display("\n");
 
 	/* Halt after setting 0x400 & rax as 42 */
