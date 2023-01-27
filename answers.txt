@@ -45,7 +45,7 @@ page table? Can you visualize the page table structure and the address translati
 
 A:
 The guest page table have 3 levels in long mode.
-It occupies 2^11 pages.
+It occupies only one pages. (It totally has 2^9 * 2^9 = 2^18 page table entries, and each entry is 2^3 bytes. So it occupies 2^18 * 2^3 = 2^21 bytes. Since the page size is 2^21, it occupies only one page.)
 Its virtual-to-physical mappings setup is ???.
 Entire VAS is mapped by the page table.
 
